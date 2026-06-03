@@ -1,11 +1,26 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Package, Compass, LogIn, UserPlus, HeartPulse, ShieldAlert, Cpu, Printer, Sparkles, LayoutDashboard } from 'lucide-react';
 
 const Home = () => {
-  const { user } = useAuth();
-  const dashboardLink = user?.role === 'Admin' ? '/admin/dashboard' : '/seller/dashboard';
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 gap-4">
+        <div className="h-12 w-12 rounded-full border-4 border-brand-500/20 border-t-brand-500 animate-spin"></div>
+        <p className="text-sm font-medium tracking-wide text-slate-400">Loading StockVibe...</p>
+      </div>
+    );
+  }
+
+  if (user) {
+    const dashboardLink = user.role === 'Admin' ? '/admin/dashboard' : '/seller/dashboard';
+    return <Navigate to={dashboardLink} replace />;
+  }
+
+  const dashboardLink = '/seller/dashboard'; // fallback default for rendering compiler if needed
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative overflow-hidden select-none font-sans">

@@ -69,9 +69,10 @@ api.interceptors.response.use(
         // Clear cached local sessions
         localStorage.removeItem('user');
         
-        // Force reload page to redirect to login route
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+        // Force redirect to homepage only if trying to access a protected route
+        const path = window.location.pathname;
+        if (path.startsWith('/admin') || path.startsWith('/seller')) {
+          window.location.href = '/';
         }
         
         return Promise.reject(refreshError);

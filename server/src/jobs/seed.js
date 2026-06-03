@@ -13,6 +13,14 @@ const seedDatabase = async () => {
   try {
     console.log('Connecting to database...');
     await mongoose.connect(mongoURI);
+    
+    // Check if database is already seeded to preserve volume state
+    const productsCount = await Product.countDocuments();
+    if (productsCount > 0) {
+      console.log('Database already contains clinical products. Seeding skipped to preserve volumes.');
+      process.exit(0);
+    }
+
     console.log('DB connected. Dropping existing collections to reset data...');
     
     // Clean slate
