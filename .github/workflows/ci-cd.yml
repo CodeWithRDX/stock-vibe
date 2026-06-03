@@ -75,8 +75,14 @@ jobs:
           key: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
           script: |
             cd /home/ubuntu/app
-            # Pull latest changes from repository
-            git pull origin main
+            if [ ! -d ".git" ]; then
+              echo "Repository not initialized on EC2. Cloning now..."
+              git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git .
+            else
+              echo "Repository exists. Pulling latest changes..."
+              git reset --hard
+              git pull origin main
+            fi
             # Rebuild and start container services directly using Docker Compose
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans
             # Execute database seeds
