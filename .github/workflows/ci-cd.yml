@@ -76,8 +76,11 @@ jobs:
           script: |
             cd /home/ubuntu/app
             if [ ! -d ".git" ]; then
-              echo "Repository not initialized on EC2. Cloning now..."
-              git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git .
+              echo "Repository not initialized on EC2. Initializing git and checking out main..."
+              git init
+              git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+              git fetch --all
+              git checkout -f main
             else
               echo "Repository exists. Pulling latest changes..."
               git reset --hard
