@@ -37,7 +37,7 @@ jobs:
 
       # 2. Frontend CI
       - name: Install Frontend Dependencies
-        run: cd client && npm ci
+        run: cd client && npm ci --legacy-peer-deps
 
       - name: Build Frontend
         run: cd client && npm run build
