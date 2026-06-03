@@ -57,7 +57,7 @@ services:
     networks:
       - stockvibe_network
     ports:
-      - "80:80"
+      - "8080:80"
 
 volumes:
   mongodb_data:

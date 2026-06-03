@@ -1,20 +1,10 @@
 #!/bin/bash
 
 # ==============================================================================
-# Deployment Orchestrator Script for StockVibe Platform
+# Deployment Orchestrator Script for StockVibe Platform (Local Builds on Host)
 # ==============================================================================
 
 set -e
-
-echo "=== Authenticating with Github Container Registry ==="
-if [ -n "$GHCR_TOKEN" ] && [ -n "$GH_ACTOR" ]; then
-  echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
-else
-  echo "Registry credentials not provided as environment variables. Assuming pre-authenticated."
-fi
-
-echo "=== Pulling latest Docker Images from GHCR ==="
-docker compose pull
 
 echo "=== Starting containers (Zero-Downtime Rollout) ==="
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --remove-orphans
