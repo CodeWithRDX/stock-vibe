@@ -1,0 +1,68 @@
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:6.0
+    container_name: stockvibe_mongodb
+    restart: always
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - stockvibe_network
+    ports:
+      - "27017:27017"
+
+  # Redis Caching Service
+  redis:
+    image: redis:7-alpine
+    container_name: stockvibe_redis
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - stockvibe_network
+    ports:
+      - "6379:6379"
+
+  # Express Backend Server
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: stockvibe_backend
+    restart: always
+    depends_on:
+      - mongodb
+      - redis
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongodb:27017/inventory_db
+      - REDIS_URL=redis://redis:6379
+      - JWT_ACCESS_SECRET=prod_secret_access_key_replace_me_in_cicd
+      - JWT_REFRESH_SECRET=prod_secret_refresh_key_replace_me_in_cicd
+    networks:
+      - stockvibe_network
+    ports:
+      - "5000:5000"
+
+  # Frontend Nginx Server
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    container_name: stockvibe_frontend
+    restart: always
+    depends_on:
+      - backend
+    networks:
+      - stockvibe_network
+    ports:
+      - "80:80"
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  stockvibe_network:
+    driver: bridge

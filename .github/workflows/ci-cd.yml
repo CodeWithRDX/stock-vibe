@@ -1,0 +1,125 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: ${{ github.repository }}/backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository }}/frontend
+
+jobs:
+  # Continuous Integration (Runs on PR & Push)
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-id: '22'
+          cache: 'npm'
+          cache-dependency-path: |
+            server/package-lock.json
+            client/package-lock.json
+
+      # 1. Backend CI
+      - name: Install Backend Dependencies
+        run: cd server && npm ci
+
+      - name: Run Backend Tests
+        run: cd server && npm run test
+
+      # 2. Frontend CI
+      - name: Install Frontend Dependencies
+        run: cd client && npm ci
+
+      - name: Build Frontend
+        run: cd client && npm run build
+
+      # 3. Docker Build Verification
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Verify Backend Container Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.server
+          push: false
+
+      - name: Verify Frontend Container Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.client
+          push: false
+
+  # Continuous Deployment (Runs on Merge to main)
+  deploy:
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Lowercase repository names for GHCR compatibility
+      - name: Inject lowercased variables
+        run: |
+          echo "BACKEND_IMAGE_LOWER=$(echo '${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "FRONTEND_IMAGE_LOWER=$(echo '${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      # Build & Push Backend
+      - name: Build and Push Backend Container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.server
+          push: true
+          tags: ${{ env.BACKEND_IMAGE_LOWER }}:latest,${{ env.BACKEND_IMAGE_LOWER }}:${{ github.sha }}
+
+      # Build & Push Frontend
+      - name: Build and Push Frontend Container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.client
+          push: true
+          tags: ${{ env.FRONTEND_IMAGE_LOWER }}:latest,${{ env.FRONTEND_IMAGE_LOWER }}:${{ github.sha }}
+
+      # SSH Deploy to AWS EC2
+      - name: Deploy to AWS EC2 via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.AWS_EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/ubuntu/app
+            # Export new tags for compose
+            export BACKEND_TAG=${{ github.sha }}
+            export FRONTEND_TAG=${{ github.sha }}
+            export GHCR_TOKEN=${{ secrets.GITHUB_TOKEN }}
+            export GH_ACTOR=${{ github.actor }}
+            
+            # Run deploy orchestration script
+            ./scripts/deploy.sh
